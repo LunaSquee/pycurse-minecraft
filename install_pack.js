@@ -102,6 +102,7 @@ function curseDownload (link, target, fname, cb) {
     }
   }
 
+  let originalFname = fname
   fname = parsed.path.split('/')
   fname = fname[fname.length - 1]
   fname = decodeURIComponent(fname)
@@ -114,11 +115,11 @@ function curseDownload (link, target, fname, cb) {
   httpModule.get(opts, function(res) {
     let len = res.headers['content-length']
     if (res.headers.location) {
-      curseDownload(res.headers.location, target, fname, cb)
+      curseDownload(res.headers.location, target, originalFname, cb)
       return
     }
     if (res.statusCode === 404) {
-      return cb('failed download of ' + fname, null)
+      return cb('failed download of ' + originalFname, null)
     }
 
     let exists = false
@@ -172,31 +173,41 @@ function makeDir (dirPath, cb) {
 }
 
 function setupMinecraft (fpathc, name, cb) {
-  if (fs.existsSync(fpathc + '/minecraft/mods')) {
-    try {
-      rmdir(fpathc + '/minecraft/mods');
-    } catch(e) {
-      return cb(e.stack, null)
-    }
-  }
   makeDir(fpathc + '/minecraft', cb)
   makeDir(fpathc + '/minecraft/mods', cb)
+}
+
+function patchDirs(dir, patch) {
+  fs.readdirSync(patch).forEach(function(file) {
+    if (fs.existsSync(dir + '/' + file)) {
+      if (fs.statSync(dir + '/' + file).isDirectory()) {
+        return patchDirs(dir + '/' + file, patch + '/' + file)
+      }
+      fs.unlinkSync(dir + '/' + file)
+    }
+    fs.renameSync(patch + '/' + file, dir + '/' + file)
+  })
 }
 
 function modpackStep2 (fpathc, name, cb) {
   if (fs.existsSync(fpathc + overrides)) {
     fs.readdirSync(fpathc + overrides).forEach(function(file) {
       var C = fpathc + overrides + '/' + file
-      if (fs.existsSync(fpathc + '/minecraft/' + file)) {
-        rmdir(fpathc + '/minecraft/' + file)
+      if (fs.existsSync(fpathc + '/minecraft/' + file) && fs.statSync(fpathc + '/minecraft/' + file).isDirectory()) {
+        patchDirs(fpathc + '/minecraft/' + file, C)
+        return
+      } else if (fs.existsSync(fpathc + '/minecraft/' + file)) {
+        fs.unlinkSync(fpathc + '/minecraft/' + file)
       }
       fs.renameSync(C, fpathc + '/minecraft/' + file)
     })
   }
   console.log('* Cleaning up..')
-  fs.rmdirSync(fpathc + overrides)
+  rmdir(fpathc + overrides)
 
-  console.log('This modpack requires Minecraft Version ' + manifest.minecraft.version)
+  cb(null, 'Modpack downloaded successfully.')
+
+  console.log('\nThis modpack requires Minecraft Version ' + manifest.minecraft.version)
   if (manifest.minecraft.modLoaders.length) {
     for (let i in manifest.minecraft.modLoaders) {
       let ml = manifest.minecraft.modLoaders[i]
@@ -208,8 +219,6 @@ function modpackStep2 (fpathc, name, cb) {
   }
   console.log('\nYour game is installed at `' + fpathc + '/minecraft`')
   console.log('Create a new profile on the Minecraft Launcher using this path and the mod loaders specified beforehand.')
-
-  cb(null, 'Done!')
 }
 
 function modpackStep1 (fpathc, name, cb) {
@@ -251,10 +260,6 @@ function modpackStep1 (fpathc, name, cb) {
   downloadNext(0)
 }
 
-function safeForZIP (fname) {
-  return fname.replace(/\s/g, '\\ ').replace(/\(/g, '\\(').replace(/\)/g, '\\)').replace(/\//g, '\\/')
-}
-
 function downloadModpackFile (url, cb) {
   makeDir(currentPWD + '/packs', cb)
   curseDownload(url + '/files/latest', '', 'download',
@@ -262,7 +267,7 @@ function downloadModpackFile (url, cb) {
       if (err) return cb(err, null)
       cb(null, filename)
       if (filename.indexOf('.zip') === -1) {
-        return cb('unsupported archive', null)
+        return cb('Unsupported archive: Most likely not a mod pack.', null)
       }
       let mpName = filename.replace('.zip', '')
       let mpDir = currentPWD + '/packs/' + mpName
