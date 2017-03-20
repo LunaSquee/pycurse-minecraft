@@ -89,7 +89,7 @@ function overrideLine (text) {
   process.stdout.write(text)
 }
 
-function curseDownload (link, target, fname, cb) {
+function hitFile (link, target, fname, cb) {
   let parsed = url.parse(link)
   let opts = {
     host: parsed.hostname,
@@ -112,10 +112,12 @@ function curseDownload (link, target, fname, cb) {
   let mb
   let mbtotal
 
+  console.log('Hitting ' + link)
+
   httpModule.get(opts, function(res) {
     let len = res.headers['content-length']
     if (res.headers.location) {
-      curseDownload(res.headers.location, target, originalFname, cb)
+      hitFile(res.headers.location, target, originalFname, cb)
       return
     }
     if (res.statusCode === 404) {
@@ -150,10 +152,10 @@ function curseDownload (link, target, fname, cb) {
   })
 }
 
-function downloadFile (projectId, fileId, vpath, cb) {
+function curseFile (projectId, fileId, vpath, cb) {
   determineProjectByID(projectId, (err, project) => {
     if (err) return cb(err, null)
-    curseDownload('https://minecraft.curseforge.com/projects/' + project + '/files/' + fileId + '/download', vpath, fileId + '.jar',
+    hitFile('https://minecraft.curseforge.com/projects/' + project + '/files/' + fileId + '/download', vpath, fileId + '.jar',
       (err, filename) => {
         if (err) return cb(err, null)
         cb(null, filename)
@@ -244,7 +246,7 @@ function modpackStep1 (fpathc, name, cb) {
 
   function downloadNext (index) {
     let file = files[index]
-    downloadFile(file.projectID, file.fileID, fpathc + '/minecraft/mods/', (err, filePath) => {
+    curseFile(file.projectID, file.fileID, fpathc + '/minecraft/mods/', (err, filePath) => {
       if (err) return cb(err, null)
       console.log('[' + (index + 1) + '/' + files.length + '] ' + filePath + ' OK')
 
@@ -262,7 +264,7 @@ function modpackStep1 (fpathc, name, cb) {
 
 function downloadModpackFile (url, cb) {
   makeDir(currentPWD + '/packs', cb)
-  curseDownload(url + '/files/latest', '', 'download',
+  hitFile(url + '/files/latest', '', 'download',
     (err, filename) => {
       if (err) return cb(err, null)
       cb(null, filename)
