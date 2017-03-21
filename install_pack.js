@@ -21,7 +21,7 @@ function rmdir (d) {
 let overrides = '/overrides'
 let manifest
 
-function HTTPRequest(link, callback, extendedHeaders) {
+function HTTPRequest(link, callback) {
   let parsed = url.parse(link)
   let opts = {
     host: parsed.hostname,
@@ -34,13 +34,6 @@ function HTTPRequest(link, callback, extendedHeaders) {
     }
   }
 
-  if(extendedHeaders != null) {
-    for(let ext in extendedHeaders) {
-      let header = extendedHeaders[ext]
-      opts.headers[ext] = header
-    }
-  }
-  
   const httpModule = parsed.protocol === 'https:' ? require('https') : require('http')
 
   httpModule.get(opts, function (res) {
@@ -61,11 +54,14 @@ function HTTPRequest(link, callback, extendedHeaders) {
 function determineProjectByID (id, cb) {
   HTTPRequest('https://mods.curse.com/project/' + id, (error, data, response) => {
     if (!response.headers.location || error !== null) return cb('noloc', null)
+
     let projectName = response.headers.location.split('/')
     projectName = projectName[projectName.length - 1]
     projectName = decodeURIComponent(projectName.replace(/^\d+-/g, ''))
+
     if (projectName) return cb(null, projectName)
-    return cb('failed', null)
+
+    cb('failed', null)
   })
 }
 
@@ -116,12 +112,14 @@ function hitFile (link, target, fname, cb) {
 
   httpModule.get(opts, function(res) {
     let len = res.headers['content-length']
+
     if (res.headers.location) {
       hitFile(res.headers.location, target, originalFname, cb)
       return
     }
+
     if (res.statusCode === 404) {
-      return cb('failed download of ' + originalFname, null)
+      return cb('Failed download of ' + originalFname, null)
     }
 
     let exists = false
@@ -168,15 +166,9 @@ function makeDir (dirPath, cb) {
     try {
       fs.mkdirSync(dirPath);
     } catch(e) {
-      if ( e.code != 'EEXIST' ) throw e;
-      return cb(e.code, null)
+      if ( e.code != 'EEXIST' ) return cb(e.code, null)
     }
   }
-}
-
-function setupMinecraft (fpathc, name, cb) {
-  makeDir(fpathc + '/minecraft', cb)
-  makeDir(fpathc + '/minecraft/mods', cb)
 }
 
 function patchDirs(dir, patch) {
@@ -224,30 +216,61 @@ function modpackStep2 (fpathc, name, cb) {
 }
 
 function modpackStep1 (fpathc, name, cb) {
-  console.log('Starting setup of modpack ' + name + '..')
   console.log('* Checking for manifest.json')
+
   try {
     manifest = require(fpathc + '/manifest.json')
   } catch (e) {
     cb('no manifest', null)
     return
   }
+
+  let zipname = name
+  name = manifest.name || zipname
+
+  console.log('Starting setup of modpack ' + name + ' version ' + manifest.version + ' by ' + manifest.author + '..')
+  
+  if (name !== zipname) {
+    if (fs.existsSync(currentPWD + '/' + name)) {
+      console.log('Found an exising installation, checking for version..')
+      let manifestExisting = require(currentPWD + '/' + name + '/manifest.json')
+      if (manifestExisting.version !== manifest.version) {
+        console.log('This is a new version, removing old..')
+        rmdir(currentPWD + '/' + name + '/mods')
+        console.log('Updating..')
+      } else {
+        console.log('Version is current, verifying installation..')
+      }
+      patchDirs(currentPWD + '/' + name, currentPWD + '/' + zipname)
+      rmdir(currentPWD + '/' + zipname)
+    } else {
+      fs.renameSync(currentPWD + '/' + zipname, currentPWD + '/' + name)
+    }
+    fpathc = currentPWD + '/' + name
+  }
+
   console.log('* Getting mod list..')
   if (!manifest.files) {
-    return cb('no files', null)
+    return cb('No files in manifest', null)
   }
+
   console.log('* Starting downloads..')
+
   if (manifest.overrides != null) {
     overrides = '/' + manifest.overrides
   } 
-  setupMinecraft(fpathc, name, cb)
+
+  makeDir(fpathc + '/minecraft', cb)
+  makeDir(fpathc + '/minecraft/mods', cb)
 
   let files = manifest.files
 
   function downloadNext (index) {
     let file = files[index]
+
     curseFile(file.projectID, file.fileID, fpathc + '/minecraft/mods/', (err, filePath) => {
       if (err) return cb(err, null)
+
       console.log('[' + (index + 1) + '/' + files.length + '] ' + filePath + ' OK')
 
       if (index === files.length - 1) {
@@ -255,6 +278,7 @@ function modpackStep1 (fpathc, name, cb) {
         modpackStep2(fpathc, name, cb)
         return
       }
+
       downloadNext(index + 1)
     })
   }
@@ -264,26 +288,27 @@ function modpackStep1 (fpathc, name, cb) {
 
 function downloadModpackFile (url, cb) {
   makeDir(currentPWD + '/packs', cb)
-  hitFile(url + '/files/latest', '', 'download',
-    (err, filename) => {
+  hitFile(url + '/files/latest', '', 'download', (err, filename) => {
+    if (err) return cb(err, null)
+
+    if (filename.indexOf('.zip') === -1) {
+      return cb('Unsupported archive: Most likely not a mod pack.', null)
+    }
+
+    let mpName = filename.replace('.zip', '')
+    let mpDir = currentPWD + '/packs/' + mpName
+
+    makeDir(mpDir, cb)
+
+    console.log('* Extracting archive..')
+
+    cprog.exec('unzip -q -o "' + filename + '" -d "' + mpDir + '"', (err, stdout, stderr) => {
       if (err) return cb(err, null)
-      cb(null, filename)
-      if (filename.indexOf('.zip') === -1) {
-        return cb('Unsupported archive: Most likely not a mod pack.', null)
-      }
-      let mpName = filename.replace('.zip', '')
-      let mpDir = currentPWD + '/packs/' + mpName
-
-      makeDir(mpDir, cb)
-
-      console.log('* Extracting archive..')
-      cprog.exec('unzip -q -o "' + filename + '" -d "' + mpDir + '"', (err, stdout, stderr) => {
-        if (err) return cb(err, null)
-        currentPWD = currentPWD + '/packs'
-        fs.unlinkSync(filename)
-        modpackStep1(mpDir, mpName, cb)
-      })
+      currentPWD = currentPWD + '/packs'
+      fs.unlinkSync(filename)
+      modpackStep1(mpDir, mpName, cb)
     })
+  })
 }
 
 if (process.argv[2] != null) {
