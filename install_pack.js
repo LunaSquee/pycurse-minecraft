@@ -114,7 +114,7 @@ function hitFile (link, target, fname, cb) {
     let len = res.headers['content-length']
 
     if (res.headers.location) {
-      hitFile(res.headers.location, target, originalFname, cb)
+      hitFile(url.resolve(link, res.headers.location), target, originalFname, cb)
       return
     }
 
