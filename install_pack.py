@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 import requests
 import urllib.parse
 import sys
@@ -17,18 +17,6 @@ headers = {
 def name_url(url):
     name = url.split('/')[-1]
     name = urllib.parse.unquote(name)
-
-    return name
-
-def project_by_id(pid):
-    r = requests.get('https://mods.curse.com/project/' + pid, headers=headers, allow_redirects=False)
-
-    if not 'location' in r.headers:
-        return None
-
-    loc = r.headers['location']
-    name = name_url(loc)
-    name = re.sub(r'^\d+-', '', name)
 
     return name
 
