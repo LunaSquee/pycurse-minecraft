@@ -1,9 +1,9 @@
 # Download CurseForge Minecraft Mod Packs on Linux
+**Requires Python 3.**
 
-***DO NOT EXPECT THIS TO WORK RELIABLY!***
+All you have to do is `python install_pack.py https://minecraft.curseforge.com/projects/MODPACK_NAME_HERE` and follow the instructions!
 
-You'll need to have [Node.js](https://nodejs.org/en/) installed for this.
+## Installing Twitch Client files
+You can also pass one of those `ccip` files to this script! These files can be obtained when pressing the 'Install' button on [CurseForge](https://www.curseforge.com/minecraft/modpacks)
 
-All you have to do is `node install_pack.js https://minecraft.curseforge.com/projects/MODPACK_NAME_HERE` and follow the instructions!
-
-You'll also need to have `unzip` installed on your system. (to avoid npm dependencies for this script)
+Example: `python install_pack.py pokemon-adventure-v-1-2-1.ccip`
