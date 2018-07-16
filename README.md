@@ -9,7 +9,21 @@ All you have to do is `python install_pack.py https://minecraft.curseforge.com/p
 
 Please note that the link must be a [CurseForge](https://minecraft.curseforge.com/) project.
 
-## Installing Twitch Client files
-You can also pass one of those `ccip` files to this script! These files can be obtained when pressing the 'Install' button on [CurseForge](https://www.curseforge.com/minecraft/modpacks)
+## Installing from Files
+Simplest way to create a modpack is using regular text files. This method also generates a `manifest.json` file automatically! Example modpack definition:
+```
+name=Example Pack
+minecraft=1.12.2
+forge=forge-14.23.4.2705
+https://minecraft.curseforge.com/projects/chisel
+https://minecraft.curseforge.com/projects/jei
+https://minecraft.curseforge.com/projects/iron-chests/files/2573525
+... list of urls ...
+```
 
-Example: `python install_pack.py pokemon-adventure-v-1-2-1.ccip`
+You can also install a `manifest.json` file directly.
+
+### Examples
+* `python install_pack.py pokemon-adventure-v-1-2-1.ccip`
+* `python install_pack.py my-mods.txt`
+* `python install_pack.py manifest.json`
