@@ -109,7 +109,7 @@ def curse_file(project_id, file_id, path):
 
 """ Final message """
 def modpack_finish(manifest, minecraft):
-    print('Installation complete!')
+    print('\nInstallation complete!')
     print('\n\n\n****************************\n\n\n')
     if 'minecraft' in manifest:
         mver = manifest['minecraft']['version']
@@ -124,7 +124,7 @@ def modpack_finish(manifest, minecraft):
 
     print('\nNow, create a new profile on the Minecraft Launcher with the required versions and the correct game path.')
     print('The game was installed at "%s"' % (os.path.abspath(minecraft)))
-    print('That\'s everything!')
+    print('\nThat\'s everything!')
 
 """ Download using a manifest """
 def commit_download(manifest, mp_dir):
@@ -142,7 +142,7 @@ def commit_download(manifest, mp_dir):
 
     # Installation path
     minecraft = os.path.join(mp_dir, 'minecraft')
-    mods = os.path.join(minecraft, 'mods')
+    mods      = os.path.join(minecraft, 'mods')
     ensure_dir(mods)
 
     if not 'files' in manifest:
@@ -151,29 +151,60 @@ def commit_download(manifest, mp_dir):
     if 'overrides' in manifest:
         overrides = os.path.join(mp_dir, manifest['overrides'])
 
+    # Associate project id with a filename
+    file_indexes = {}
+    index_file   = os.path.join(mp_dir, 'index.json')
+
+    # Load file indexes
+    if os.path.exists(index_file):
+        with open(index_file, "r") as f:
+            file_indexes = json.load(f)
+
+    # Keep track of successful and failed files
     skipped = 0
-    index = 0
+    index   = 0
 
     # Download all files
     for file in manifest['files']:
+        project_id = str(file['projectID'])
+        file_id    = str(file['fileID'])
+
         index += 1
         print('Downloading file %d out of %d..' % (index, len(manifest['files'])))
+        
+        # Download file
         try:
-            f = curse_file(str(file['projectID']), str(file['fileID']), mods)
+            f = curse_file(project_id, file_id, mods)
         except Exception as e:
             print('File was skipped due to errors.')
             skipped += 1
             continue
 
+        # Keep track of skipped file
         if not f:
             print('File was skipped.')
             skipped += 1
+            continue
+        
+        # Remove old mod file
+        if project_id in file_indexes:
+            old_fpath = file_indexes[project_id]
+            modpath   = os.path.join(mods, old_fpath)
+            if os.path.exists(modpath) and f != old_fpath:
+                os.remove(modpath)
+
+        # Index the downloaded file
+        file_indexes[project_id] = os.path.basename(f)
 
     print('Finished downloading files. %d total, %d skipped.' % (index - skipped, skipped))
 
     if overrides:
-        print('Installing game files..')
+        print('\nInstalling game files..\n')
         copytree(overrides, minecraft)
+
+    if len(file_indexes) > 0:
+        with open(index_file, 'w') as f:
+            json.dump(file_indexes, f)
 
     modpack_finish(manifest, minecraft)
 
@@ -187,6 +218,8 @@ def mod_list_manifest(file):
 
             if "name" in manifest:
                 pathof = manifest["name"]
+
+            pathof = os.path.join("packs", pathof)
 
             commit_download(manifest, pathof)
         return
@@ -321,9 +354,8 @@ if __name__ == "__main__":
         raise ValueError('Please specify an url.')
 
     mppath = sys.argv[1]
-    argccip = ".ccip" in mppath
 
-    if argccip:
+    if ".ccip" in mppath:
         print("Detected: Installation file")
         import xml.etree.ElementTree
         e = xml.etree.ElementTree.parse(mppath).getroot()
