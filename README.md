@@ -1,7 +1,9 @@
 # Download CurseForge Minecraft Mod Packs on Linux
-**Requires Python 3.**
+This Python script allows you to download CurseForge Minecraft Mod Packs on Linux, without the need for the Twitch Client.
 
-All you have to do is `python install_pack.py https://minecraft.curseforge.com/projects/MODPACK_NAME_HERE` and follow the instructions! This script will automatically
+**Requires Python 3 and the `requests` module.**
+
+All you have to do is `./install_pack.py https://minecraft.curseforge.com/projects/MODPACK_NAME_HERE` and follow the instructions! This script will automatically:
 * Download the latest version of the modpack (unless `/files/:fileId` with a custom ID is appended to the url)
 * Download all the mods listed in `manifest.json` one after another
 * Apply any and all `overrides`
@@ -24,6 +26,6 @@ https://minecraft.curseforge.com/projects/iron-chests/files/2573525
 You can also install a `manifest.json` file directly.
 
 ### Examples
-* `python install_pack.py pokemon-adventure-v-1-2-1.ccip`
-* `python install_pack.py my-mods.txt`
-* `python install_pack.py manifest.json`
+* `./install_pack.py pokemon-adventure-v-1-2-1.ccip`
+* `./install_pack.py my-mod-list.txt`
+* `./install_pack.py manifest.json`

@@ -19,6 +19,12 @@ headers = {
     "accept-language": "en-GB,enq=0.5"
 }
 
+def clean_name(name):
+    name = re.sub(r'[+]', ' ', name)
+    name = re.sub(r'[^\w_\.\-\s]', '', name)
+
+    return name
+
 def name_url(url):
     name = url.split('/')[-1]
     name = urllib.parse.unquote(name)
@@ -32,6 +38,7 @@ def ensure_dir(path):
         if e.errno != errno.EEXIST:
             raise
 
+""" Copy and overwrite directory """
 def copytree(src, dst, symlinks=False, ignore=None):
     for item in os.listdir(src):
         s = os.path.join(src, item)
@@ -49,6 +56,7 @@ def copytree(src, dst, symlinks=False, ignore=None):
 # DOWNLOADING #
 ###############
 
+""" Download """
 def hit_file(url, target, file_name):
     ensure_dir(target)
 
@@ -63,11 +71,11 @@ def hit_file(url, target, file_name):
         return hit_file(urllib.parse.urljoin(url, r.headers['location']), target, file_name)
 
     if r.status_code == 404:
-        print('Could not find resource at %s!' % (url))
+        print('❌ Could not find resource at %s!' % (url))
         return None
 
     if not 'content-length' in r.headers:
-        print('Could not determine content size!')
+        print('❌ Could not determine content size!')
         return None
 
     size = int(r.headers['content-length'].strip())
@@ -78,7 +86,7 @@ def hit_file(url, target, file_name):
     if os.path.exists(write_to):
         return None
 
-    print('Hitting file %s' % (url))
+    print('=> Hitting file at %s' % (url))
 
     with open(write_to, 'wb') as handle:
         for block in r.iter_content(1024):
@@ -90,10 +98,11 @@ def hit_file(url, target, file_name):
                 str(round(size / 1024 / 1024, 2))[:4]))
             sys.stdout.flush()
 
-    sys.stdout.write('\rDownloaded file successfully!' + ' ' * (len(file_name) + 10) + '\n')
+    sys.stdout.write('\r✔  Downloaded file successfully!' + ' ' * (len(file_name) + 10) + '\n')
     sys.stdout.flush()
     return file_name
 
+""" Create download URL from project name and file id """
 def curse_file(project_id, file_id, path):
     append = ""
 
@@ -109,7 +118,7 @@ def curse_file(project_id, file_id, path):
 
 """ Final message """
 def modpack_finish(manifest, minecraft):
-    print('\nInstallation complete!')
+    print('\n✔  Installation complete!')
     print('\n\n\n****************************\n\n\n')
     if 'minecraft' in manifest:
         mver = manifest['minecraft']['version']
@@ -171,21 +180,21 @@ def commit_download(manifest, mp_dir):
 
         index += 1
         print('Downloading file %d out of %d..' % (index, len(manifest['files'])))
-        
+
         # Download file
         try:
             f = curse_file(project_id, file_id, mods)
         except Exception as e:
-            print('File was skipped due to errors.')
+            print('❌ File was skipped due to errors.')
             skipped += 1
             continue
 
         # Keep track of skipped file
         if not f:
-            print('File was skipped.')
+            print('❌ File was skipped.')
             skipped += 1
             continue
-        
+
         # Remove old mod file
         if project_id in file_indexes:
             old_fpath = file_indexes[project_id]
@@ -196,10 +205,10 @@ def commit_download(manifest, mp_dir):
         # Index the downloaded file
         file_indexes[project_id] = os.path.basename(f)
 
-    print('Finished downloading files. %d total, %d skipped.' % (index - skipped, skipped))
+    print('✔  Finished downloading files. %d total, %d skipped.' % (index - skipped, skipped))
 
     if overrides:
-        print('\nInstalling game files..\n')
+        print('\n=> Installing game files..\n')
         copytree(overrides, minecraft)
 
     if len(file_indexes) > 0:
@@ -264,12 +273,12 @@ def mod_list_manifest(file):
     if not "version" in arguments:
         arguments["version"] = "1.0.0"
 
-    mp_dir = os.path.join('packs', arguments["name"])
+    mp_dir = os.path.join('packs', clean_name(arguments["name"]))
     ensure_dir(mp_dir)
 
     overrides = None
     if "overrides_url" in arguments:
-        print("Downloading overrides..")
+        print("=> Downloading overrides..")
         fnam = hit_file(arguments["overrides_url"], mp_dir, "overrides.zip")
 
         if fnam:
@@ -284,7 +293,7 @@ def mod_list_manifest(file):
     elif "overrides" in arguments:
         overrides = arguments["overrides"]
 
-    print("Generating manifest.json ...")
+    print("=> Generating manifest.json ...")
 
     # Generate a manifest
     manifest = {
@@ -342,6 +351,11 @@ def download_modpack(url):
     with open(os.path.join(mp_dir, 'manifest.json')) as json_data:
         manifest = json.load(json_data)
 
+    # Versionless directory
+    if "name" in manifest:
+        mp_name = clean_name(manifest["name"])
+        os.rename(mp_dir, os.path.join('packs', mp_name))
+
     # Start the actual downloading
     commit_download(manifest, mp_dir)
 
@@ -351,12 +365,12 @@ def download_modpack(url):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        raise ValueError('Please specify an url.')
+        raise ValueError('Please specify an url or file path.')
 
     mppath = sys.argv[1]
 
     if ".ccip" in mppath:
-        print("Detected: Installation file")
+        print("[Detected: Install file]")
         import xml.etree.ElementTree
         e = xml.etree.ElementTree.parse(mppath).getroot()
         if e.find('project') == None:
@@ -371,10 +385,10 @@ if __name__ == "__main__":
         if not '/files' in mppath:
             mppath += '/files/latest'
 
-        print("Detected: CurseForge URL")
+        print("[Detected: CurseForge URL]")
 
         download_modpack(mppath)
     else:
-        print("Detected: File path")
+        print("[Detected: File]")
 
         mod_list_manifest(mppath)
