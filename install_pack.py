@@ -354,7 +354,10 @@ def download_modpack(url):
     # Versionless directory
     if "name" in manifest:
         mp_name = clean_name(manifest["name"])
-        os.rename(mp_dir, os.path.join('packs', mp_name))
+        new_dir = os.path.join('packs', mp_name)
+        if new_dir != mp_dir:
+            os.rename(mp_dir, new_dir)
+            mp_dir = new_dir
 
     # Start the actual downloading
     commit_download(manifest, mp_dir)
