@@ -356,7 +356,11 @@ def download_modpack(url):
         mp_name = clean_name(manifest["name"])
         new_dir = os.path.join('packs', mp_name)
         if new_dir != mp_dir:
-            os.rename(mp_dir, new_dir)
+            if os.path.exists(new_dir):
+                copytree(mp_dir, new_dir)
+                shutil.rmtree(mp_dir)
+            else:
+                os.rename(mp_dir, new_dir)
             mp_dir = new_dir
 
     # Start the actual downloading
