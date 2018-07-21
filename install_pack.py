@@ -84,6 +84,7 @@ def hit_file(url, target, file_name):
     write_to = os.path.join(target, file_name)
 
     if os.path.exists(write_to):
+        print('❌ Target "%s" already exists!' % (write_to))
         return None
 
     print('=> Hitting file at %s' % (url))
